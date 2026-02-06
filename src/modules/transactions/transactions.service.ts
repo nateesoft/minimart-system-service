@@ -123,7 +123,13 @@ export class TransactionsService {
       this.prisma.transaction.findMany({
         where,
         include: {
-          items: true,
+          items: {
+            include: {
+              product: {
+                select: { id: true, name: true, image: true },
+              },
+            },
+          },
           payment: true,
         },
         skip: (page - 1) * limit,
