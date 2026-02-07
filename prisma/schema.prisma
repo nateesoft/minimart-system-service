@@ -44,9 +44,11 @@ model Product {
   isActive          Boolean            @default(true)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
-  category          Category           @relation(fields: [categoryId], references: [id])
-  transactionItems  TransactionItem[]
-  promotionProducts PromotionProduct[]
+  category              Category               @relation(fields: [categoryId], references: [id])
+  transactionItems      TransactionItem[]
+  promotionProducts     PromotionProduct[]
+  inventoryTransactions InventoryTransaction[]
+  stockCounts           StockCount[]
 
   @@schema("minimart")
 }
@@ -147,6 +149,62 @@ enum PromotionType {
   BUNDLE_FREE        // ซื้อ A+B แถม C
   NEXT_ITEM_DISCOUNT // ซื้อ X ชิ้นต่อไปลด %
 
+  @@schema("minimart")
+}
+
+enum InventoryTransactionType {
+  RECEIVING   // รับสินค้าเข้า
+  ISSUING     // จ่ายสินค้าออก
+  ADJUSTMENT  // ปรับปรุงสต็อก (จากการนับ)
+  SALE        // ขาย (จาก POS)
+  REFUND      // คืนสินค้า
+
+  @@schema("minimart")
+}
+
+// ============================================
+// INVENTORY TRANSACTION - ประวัติการเคลื่อนไหวสต็อก
+// ============================================
+model InventoryTransaction {
+  id            Int                      @id @default(autoincrement())
+  productId     Int
+  type          InventoryTransactionType
+  quantity      Int                      // + รับเข้า, - จ่ายออก
+  previousStock Int                      // สต็อกก่อนทำรายการ
+  currentStock  Int                      // สต็อกหลังทำรายการ
+  reference     String?                  // เลขที่เอกสารอ้างอิง (PO, Invoice, TXN-xxx)
+  reason        String?                  // เหตุผล
+  notes         String?                  // หมายเหตุ
+  createdBy     String?                  // ผู้ทำรายการ
+  createdAt     DateTime                 @default(now())
+
+  product       Product                  @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@index([type])
+  @@index([createdAt])
+  @@schema("minimart")
+}
+
+// ============================================
+// STOCK COUNT - บันทึกการนับสต็อก
+// ============================================
+model StockCount {
+  id              Int       @id @default(autoincrement())
+  productId       Int
+  systemQuantity  Int       // จำนวนในระบบ ณ ขณะนับ
+  countedQuantity Int       // จำนวนที่นับได้จริง
+  variance        Int       // ผลต่าง (counted - system)
+  isAdjusted      Boolean   @default(false) // ปรับปรุงสต็อกแล้วหรือยัง
+  notes           String?   // หมายเหตุ
+  countedBy       String?   // ผู้นับ
+  createdAt       DateTime  @default(now())
+  adjustedAt      DateTime? // วันที่ปรับปรุง
+
+  product         Product   @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@index([isAdjusted])
   @@schema("minimart")
 }
 

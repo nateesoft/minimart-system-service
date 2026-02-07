@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, InventoryTransactionType } from '@prisma/client';
 import { CreateTransactionDto, QueryTransactionsDto } from './dto';
 
 @Injectable()
@@ -88,11 +88,28 @@ export class TransactionsService {
         },
       });
 
-      // Deduct stock
+      // Deduct stock and create inventory transactions
       for (const item of dto.items) {
+        const product = products.find((p) => p.id === item.productId)!;
+        const previousStock = product.stock;
+        const currentStock = previousStock - item.quantity;
+
         await tx.product.update({
           where: { id: item.productId },
           data: { stock: { decrement: item.quantity } },
+        });
+
+        // Create inventory transaction for SALE
+        await tx.inventoryTransaction.create({
+          data: {
+            productId: item.productId,
+            type: InventoryTransactionType.SALE,
+            quantity: -item.quantity,
+            previousStock,
+            currentStock,
+            reference: transactionId,
+            reason: 'POS Sale',
+          },
         });
       }
 
@@ -182,7 +199,13 @@ export class TransactionsService {
   async void(id: number) {
     const transaction = await this.prisma.transaction.findUnique({
       where: { id },
-      include: { items: true },
+      include: {
+        items: {
+          include: {
+            product: { select: { id: true, stock: true } },
+          },
+        },
+      },
     });
 
     if (!transaction) {
@@ -203,11 +226,27 @@ export class TransactionsService {
         include: { items: true, payment: true },
       });
 
-      // Restore stock
+      // Restore stock and create inventory transactions
       for (const item of transaction.items) {
+        const previousStock = item.product.stock;
+        const currentStock = previousStock + item.quantity;
+
         await tx.product.update({
           where: { id: item.productId },
           data: { stock: { increment: item.quantity } },
+        });
+
+        // Create inventory transaction for VOID (same as REFUND type)
+        await tx.inventoryTransaction.create({
+          data: {
+            productId: item.productId,
+            type: InventoryTransactionType.REFUND,
+            quantity: item.quantity,
+            previousStock,
+            currentStock,
+            reference: transaction.transactionId,
+            reason: 'Transaction Voided',
+          },
         });
       }
 
@@ -218,7 +257,14 @@ export class TransactionsService {
   async refund(id: number, reason?: string) {
     const transaction = await this.prisma.transaction.findUnique({
       where: { id },
-      include: { items: true, payment: true },
+      include: {
+        items: {
+          include: {
+            product: { select: { id: true, stock: true } },
+          },
+        },
+        payment: true,
+      },
     });
 
     if (!transaction) {
@@ -253,11 +299,27 @@ export class TransactionsService {
         },
       });
 
-      // Restore stock
+      // Restore stock and create inventory transactions
       for (const item of transaction.items) {
+        const previousStock = item.product.stock;
+        const currentStock = previousStock + item.quantity;
+
         await tx.product.update({
           where: { id: item.productId },
           data: { stock: { increment: item.quantity } },
+        });
+
+        // Create inventory transaction for REFUND
+        await tx.inventoryTransaction.create({
+          data: {
+            productId: item.productId,
+            type: InventoryTransactionType.REFUND,
+            quantity: item.quantity,
+            previousStock,
+            currentStock,
+            reference: transaction.transactionId,
+            reason: reason || 'Customer Refund',
+          },
         });
       }
 
