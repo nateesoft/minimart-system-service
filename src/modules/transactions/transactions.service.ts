@@ -203,4 +203,52 @@ export class TransactionsService {
       return voided;
     });
   }
+
+  async refund(id: number, reason?: string) {
+    const transaction = await this.prisma.transaction.findUnique({
+      where: { id },
+      include: { items: true, payment: true },
+    });
+
+    if (!transaction) {
+      throw new NotFoundException(`Transaction with ID ${id} not found`);
+    }
+
+    if (transaction.status !== 'COMPLETED') {
+      throw new BadRequestException(
+        `Cannot refund transaction with status ${transaction.status}`,
+      );
+    }
+
+    // Refund and restore stock
+    return this.prisma.$transaction(async (tx) => {
+      const refunded = await tx.transaction.update({
+        where: { id },
+        data: {
+          status: 'REFUNDED',
+          notes: reason ? `${transaction.notes || ''} [REFUND: ${reason}]`.trim() : transaction.notes,
+        },
+        include: {
+          items: {
+            include: {
+              product: {
+                select: { id: true, name: true, image: true },
+              },
+            },
+          },
+          payment: true,
+        },
+      });
+
+      // Restore stock
+      for (const item of transaction.items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { increment: item.quantity } },
+        });
+      }
+
+      return refunded;
+    });
+  }
 }

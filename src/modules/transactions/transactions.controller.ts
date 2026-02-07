@@ -63,4 +63,18 @@ export class TransactionsController {
   void(@Param('id', ParseIntPipe) id: number) {
     return this.transactionsService.void(id);
   }
+
+  @Patch(':id/refund')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Refund a transaction' })
+  @ApiResponse({ status: 200, description: 'Transaction refunded' })
+  @ApiResponse({ status: 404, description: 'Transaction not found' })
+  @ApiResponse({ status: 400, description: 'Transaction cannot be refunded' })
+  refund(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { reason?: string },
+  ) {
+    return this.transactionsService.refund(id, body?.reason);
+  }
 }
