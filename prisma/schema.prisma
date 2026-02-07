@@ -31,21 +31,22 @@ model Category {
 // PRODUCT - สินค้า
 // ============================================
 model Product {
-  id               Int               @id @default(autoincrement())
-  name             String
-  categoryId       Int
-  price            Float             @default(0)
-  costPrice        Float             @default(0)
-  barcode          String            @unique
-  stock            Int               @default(0)
-  minStock         Int               @default(10)
-  image            String?
-  unit             String
-  isActive         Boolean           @default(true)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  category         Category          @relation(fields: [categoryId], references: [id])
-  transactionItems TransactionItem[]
+  id                Int                @id @default(autoincrement())
+  name              String
+  categoryId        Int
+  price             Float              @default(0)
+  costPrice         Float              @default(0)
+  barcode           String             @unique
+  stock             Int                @default(0)
+  minStock          Int                @default(10)
+  image             String?
+  unit              String
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  category          Category           @relation(fields: [categoryId], references: [id])
+  transactionItems  TransactionItem[]
+  promotionProducts PromotionProduct[]
 
   @@schema("minimart")
 }
@@ -137,5 +138,57 @@ enum TransactionStatus {
   VOIDED
   REFUNDED
 
+  @@schema("minimart")
+}
+
+enum PromotionType {
+  BUY_X_GET_Y        // ซื้อ X แถม Y
+  QUANTITY_DISCOUNT  // ซื้อ X ชิ้น ลด %
+  BUNDLE_FREE        // ซื้อ A+B แถม C
+  NEXT_ITEM_DISCOUNT // ซื้อ X ชิ้นต่อไปลด %
+
+  @@schema("minimart")
+}
+
+// ============================================
+// PROMOTION - โปรโมชั่น
+// ============================================
+model Promotion {
+  id          Int                @id @default(autoincrement())
+  name        String             // ชื่อโปรโมชั่น
+  description String?            // คำอธิบาย
+  type        PromotionType
+  isActive    Boolean            @default(true)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  // Rule parameters (embedded for simplicity)
+  buyQuantity     Int?           // จำนวนที่ต้องซื้อ (X)
+  freeQuantity    Int?           // จำนวนที่แถม (Y)
+  discountPercent Float?         // เปอร์เซ็นต์ส่วนลด
+  discountAmount  Float?         // ส่วนลดเป็นจำนวนเงิน
+
+  // Relations
+  products    PromotionProduct[]
+
+  @@schema("minimart")
+}
+
+// ============================================
+// PROMOTION PRODUCT - สินค้าในโปรโมชั่น
+// ============================================
+model PromotionProduct {
+  id          Int       @id @default(autoincrement())
+  promotionId Int
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  productId   Int
+  product     Product   @relation(fields: [productId], references: [id])
+
+  // Role in promotion: "trigger" = สินค้าที่ต้องซื้อ, "free" = สินค้าที่แถม, "discounted" = สินค้าที่ได้ลด
+  role        String    @default("trigger")
+
+  @@unique([promotionId, productId, role])
   @@schema("minimart")
 }

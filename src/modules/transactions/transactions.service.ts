@@ -19,7 +19,9 @@ export class TransactionsService {
     });
 
     if (products.length !== productIds.length) {
-      throw new BadRequestException('One or more products not found or inactive');
+      throw new BadRequestException(
+        'One or more products not found or inactive',
+      );
     }
 
     // Check stock availability
@@ -101,7 +103,14 @@ export class TransactionsService {
   }
 
   async findAll(query: QueryTransactionsDto) {
-    const { startDate, endDate, paymentMethod, status, page = 1, limit = 20 } = query;
+    const {
+      startDate,
+      endDate,
+      paymentMethod,
+      status,
+      page = 1,
+      limit = 20,
+    } = query;
 
     const where: Prisma.TransactionWhereInput = {};
 
@@ -155,7 +164,9 @@ export class TransactionsService {
       where: { id },
       include: {
         items: {
-          include: { product: { select: { id: true, name: true, barcode: true } } },
+          include: {
+            product: { select: { id: true, name: true, barcode: true } },
+          },
         },
         payment: true,
       },
@@ -226,7 +237,9 @@ export class TransactionsService {
         where: { id },
         data: {
           status: 'REFUNDED',
-          notes: reason ? `${transaction.notes || ''} [REFUND: ${reason}]`.trim() : transaction.notes,
+          notes: reason
+            ? `${transaction.notes || ''} [REFUND: ${reason}]`.trim()
+            : transaction.notes,
         },
         include: {
           items: {

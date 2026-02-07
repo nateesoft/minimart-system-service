@@ -1,5 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsInt, Min, IsDateString } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsInt,
+  Min,
+  IsDateString,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class QueryTransactionsDto {
@@ -13,12 +19,16 @@ export class QueryTransactionsDto {
   @IsOptional()
   endDate?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by payment method (cash, card, qr)' })
+  @ApiPropertyOptional({
+    description: 'Filter by payment method (cash, card, qr)',
+  })
   @IsString()
   @IsOptional()
   paymentMethod?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by status (COMPLETED, VOIDED, REFUNDED)' })
+  @ApiPropertyOptional({
+    description: 'Filter by status (COMPLETED, VOIDED, REFUNDED)',
+  })
   @IsString()
   @IsOptional()
   status?: string;

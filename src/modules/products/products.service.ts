@@ -46,9 +46,7 @@ export class ProductsService {
     if (lowStock === 'true') {
       where.stock = { lte: where.stock as any };
       // Use raw filtering for low stock
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : []),
-      ];
+      where.AND = [...(Array.isArray(where.AND) ? where.AND : [])];
     }
 
     const [products, total] = await Promise.all([

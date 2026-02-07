@@ -8,9 +8,7 @@ export class AuthService {
     // Standalone auth for minimart POS system
     // In production, validate against a user store or external service
     if (process.env.NODE_ENV === 'development') {
-      this.logger.warn(
-        `Using mock user for development (userId: ${userId})`,
-      );
+      this.logger.warn(`Using mock user for development (userId: ${userId})`);
       return {
         id: userId,
         username: 'cashier',

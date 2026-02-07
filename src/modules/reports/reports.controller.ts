@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -23,8 +18,16 @@ export class ReportsController {
 
   @Get('daily-sales')
   @ApiOperation({ summary: 'Get daily sales report' })
-  @ApiQuery({ name: 'startDate', required: false, description: 'Start date (ISO format)' })
-  @ApiQuery({ name: 'endDate', required: false, description: 'End date (ISO format)' })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    description: 'Start date (ISO format)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    description: 'End date (ISO format)',
+  })
   @ApiResponse({ status: 200, description: 'Daily sales data' })
   getDailySales(
     @Query('startDate') startDate?: string,
@@ -35,8 +38,16 @@ export class ReportsController {
 
   @Get('summary')
   @ApiOperation({ summary: 'Get sales summary' })
-  @ApiQuery({ name: 'startDate', required: false, description: 'Start date (ISO format)' })
-  @ApiQuery({ name: 'endDate', required: false, description: 'End date (ISO format)' })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    description: 'Start date (ISO format)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    description: 'End date (ISO format)',
+  })
   @ApiResponse({ status: 200, description: 'Sales summary' })
   getSummary(
     @Query('startDate') startDate?: string,
@@ -47,9 +58,22 @@ export class ReportsController {
 
   @Get('top-products')
   @ApiOperation({ summary: 'Get top selling products' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of products (default 10)' })
-  @ApiQuery({ name: 'startDate', required: false, description: 'Start date (ISO format)' })
-  @ApiQuery({ name: 'endDate', required: false, description: 'End date (ISO format)' })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of products (default 10)',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: false,
+    description: 'Start date (ISO format)',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: false,
+    description: 'End date (ISO format)',
+  })
   @ApiResponse({ status: 200, description: 'Top selling products' })
   getTopProducts(
     @Query('limit') limit?: string,
