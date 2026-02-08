@@ -66,11 +66,16 @@ model Transaction {
   cashierName   String?
   cashierId     Int?
   notes         String?
+  memberId      Int?                        // สมาชิกที่ซื้อ
+  pointsEarned  Int               @default(0) // แต้มที่ได้รับจากรายการนี้
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   items         TransactionItem[]
   payment       Payment?
+  member        Member?           @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  pointTransactions PointTransaction[]
 
+  @@index([memberId])
   @@schema("minimart")
 }
 
@@ -162,6 +167,16 @@ enum InventoryTransactionType {
   @@schema("minimart")
 }
 
+enum PointTransactionType {
+  EARN        // ได้รับจากการซื้อ
+  REDEEM      // ใช้แลกส่วนลด/ของรางวัล
+  BONUS       // โบนัสพิเศษ
+  ADJUSTMENT  // ปรับปรุงโดยแอดมิน
+  EXPIRED     // หมดอายุ
+
+  @@schema("minimart")
+}
+
 // ============================================
 // INVENTORY TRANSACTION - ประวัติการเคลื่อนไหวสต็อก
 // ============================================
@@ -248,5 +263,53 @@ model PromotionProduct {
   role        String    @default("trigger")
 
   @@unique([promotionId, productId, role])
+  @@schema("minimart")
+}
+
+// ============================================
+// MEMBER - สมาชิก
+// ============================================
+model Member {
+  id           Int                @id @default(autoincrement())
+  phone        String             @unique         // เบอร์โทร (primary identifier)
+  firstName    String                             // ชื่อ
+  lastName     String?                            // นามสกุล (optional)
+  email        String?            @unique         // อีเมล (optional)
+  totalPoints  Int                @default(0)     // แต้มสะสมปัจจุบัน
+  totalSpent   Float              @default(0)     // ยอดซื้อสะสม
+  isActive     Boolean            @default(true)  // สถานะ
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  // Relations
+  pointTransactions PointTransaction[]
+  transactions      Transaction[]
+
+  @@index([phone])
+  @@index([firstName])
+  @@schema("minimart")
+}
+
+// ============================================
+// POINT TRANSACTION - ประวัติการเคลื่อนไหวแต้ม
+// ============================================
+model PointTransaction {
+  id              Int                  @id @default(autoincrement())
+  memberId        Int
+  transactionId   Int?                            // อ้างอิงใบเสร็จ (null สำหรับ bonus/adjustment)
+  type            PointTransactionType
+  points          Int                             // + ได้รับ, - ใช้ไป
+  balanceBefore   Int                             // แต้มก่อนทำรายการ
+  balanceAfter    Int                             // แต้มหลังทำรายการ
+  description     String?                         // รายละเอียด
+  createdBy       String?                         // ผู้ทำรายการ
+  createdAt       DateTime             @default(now())
+
+  member          Member               @relation(fields: [memberId], references: [id])
+  transaction     Transaction?         @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([memberId])
+  @@index([transactionId])
+  @@index([createdAt])
   @@schema("minimart")
 }

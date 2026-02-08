@@ -4,8 +4,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma, InventoryTransactionType } from '@prisma/client';
+import { Prisma, InventoryTransactionType, PointTransactionType } from '@prisma/client';
 import { CreateTransactionDto, QueryTransactionsDto } from './dto';
+
+// Points configuration: 25 บาท = 1 แต้ม
+const BAHT_PER_POINT = 25;
 
 @Injectable()
 export class TransactionsService {
@@ -52,6 +55,24 @@ export class TransactionsService {
     // Generate transaction ID
     const transactionId = `TXN-${Date.now()}`;
 
+    // Validate member if provided
+    let member: { id: number; totalPoints: number; totalSpent: number; isActive: boolean } | null = null;
+    if (dto.memberId) {
+      const foundMember = await this.prisma.member.findUnique({
+        where: { id: dto.memberId },
+      });
+      if (!foundMember) {
+        throw new BadRequestException(`Member with ID ${dto.memberId} not found`);
+      }
+      if (!foundMember.isActive) {
+        throw new BadRequestException('Member is inactive');
+      }
+      member = foundMember;
+    }
+
+    // Calculate points earned (total / 25 บาท = 1 แต้ม)
+    const pointsEarned = member ? Math.floor(total / BAHT_PER_POINT) : 0;
+
     // Create transaction with items and payment in a single transaction
     const result = await this.prisma.$transaction(async (tx) => {
       const transaction = await tx.transaction.create({
@@ -61,6 +82,8 @@ export class TransactionsService {
           discount,
           total,
           notes: dto.notes,
+          memberId: dto.memberId,
+          pointsEarned,
           items: {
             create: dto.items.map((item) => {
               const product = products.find((p) => p.id === item.productId)!;
@@ -113,6 +136,34 @@ export class TransactionsService {
         });
       }
 
+      // Handle member points accumulation
+      if (member && pointsEarned > 0) {
+        const balanceBefore = member.totalPoints;
+        const balanceAfter = balanceBefore + pointsEarned;
+
+        // Create point transaction
+        await tx.pointTransaction.create({
+          data: {
+            memberId: member.id,
+            transactionId: transaction.id,
+            type: PointTransactionType.EARN,
+            points: pointsEarned,
+            balanceBefore,
+            balanceAfter,
+            description: `สะสมแต้มจากการซื้อ ${transactionId}`,
+          },
+        });
+
+        // Update member's total points and total spent
+        await tx.member.update({
+          where: { id: member.id },
+          data: {
+            totalPoints: balanceAfter,
+            totalSpent: { increment: total },
+          },
+        });
+      }
+
       return transaction;
     });
 
@@ -157,6 +208,9 @@ export class TransactionsService {
             },
           },
           payment: true,
+          member: {
+            select: { id: true, phone: true, firstName: true, lastName: true, totalPoints: true },
+          },
         },
         skip: (page - 1) * limit,
         take: limit,
@@ -186,6 +240,9 @@ export class TransactionsService {
           },
         },
         payment: true,
+        member: {
+          select: { id: true, phone: true, firstName: true, lastName: true, totalPoints: true },
+        },
       },
     });
 
