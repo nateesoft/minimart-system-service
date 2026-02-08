@@ -9,6 +9,84 @@ datasource db {
 }
 
 // ============================================
+// USER - ผู้ใช้งานระบบ
+// ============================================
+model User {
+  id            Int           @id @default(autoincrement())
+  username      String        @unique
+  email         String?       @unique
+  passwordHash  String
+  firstName     String
+  lastName      String?
+  phone         String?
+  isActive      Boolean       @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  roleId        Int
+  role          Role          @relation(fields: [roleId], references: [id])
+
+  // Audit trail - transactions this user created as cashier
+  transactions  Transaction[] @relation("CashierTransactions")
+
+  @@index([username])
+  @@index([roleId])
+  @@schema("minimart")
+}
+
+// ============================================
+// ROLE - บทบาทผู้ใช้งาน
+// ============================================
+model Role {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique      // e.g., "ADMIN", "CASHIER", "MANAGER"
+  displayName String                        // e.g., "ผู้ดูแลระบบ", "พนักงานขาย"
+  description String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  users       User[]
+  permissions RolePermission[]
+
+  @@schema("minimart")
+}
+
+// ============================================
+// PERMISSION - สิทธิ์การเข้าถึง
+// ============================================
+model Permission {
+  id          Int              @id @default(autoincrement())
+  code        String           @unique      // e.g., "pos.access", "admin.users.manage"
+  name        String                        // e.g., "เข้าถึงหน้าขาย"
+  module      String                        // e.g., "pos", "admin", "inventory"
+  description String?
+  createdAt   DateTime         @default(now())
+
+  roles       RolePermission[]
+
+  @@index([module])
+  @@schema("minimart")
+}
+
+// ============================================
+// ROLE_PERMISSION - ความสัมพันธ์ Role-Permission
+// ============================================
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+  createdAt    DateTime   @default(now())
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@schema("minimart")
+}
+
+// ============================================
 // CATEGORY - หมวดหมู่สินค้า
 // ============================================
 model Category {
@@ -65,6 +143,7 @@ model Transaction {
   status        TransactionStatus @default(COMPLETED)
   cashierName   String?
   cashierId     Int?
+  cashier       User?           @relation("CashierTransactions", fields: [cashierId], references: [id], onDelete: SetNull)
   notes         String?
   memberId      Int?                        // สมาชิกที่ซื้อ
   pointsEarned  Int               @default(0) // แต้มที่ได้รับจากรายการนี้
