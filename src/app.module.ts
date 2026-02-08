@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { RolesModule } from './modules/roles/roles.module';
+import { PermissionsModule } from './modules/permissions/permissions.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ProductsModule } from './modules/products/products.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
@@ -17,6 +20,9 @@ import { MembersModule } from './modules/members/members.module';
     }),
     PrismaModule,
     AuthModule,
+    UsersModule,
+    RolesModule,
+    PermissionsModule,
     CategoriesModule,
     ProductsModule,
     TransactionsModule,
