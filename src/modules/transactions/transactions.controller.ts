@@ -29,7 +29,10 @@ export class TransactionsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new transaction (sale)' })
   @ApiResponse({ status: 201, description: 'Transaction created' })
-  @ApiResponse({ status: 400, description: 'Invalid data or insufficient stock' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid data or insufficient stock',
+  })
   create(@Body() dto: CreateTransactionDto) {
     return this.transactionsService.create(dto);
   }

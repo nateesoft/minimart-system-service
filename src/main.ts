@@ -27,7 +27,9 @@ async function bootstrap() {
   // Swagger documentation
   const config = new DocumentBuilder()
     .setTitle('Minimart System Service API')
-    .setDescription('API for Minimart POS System - Sales & Transaction Management')
+    .setDescription(
+      'API for Minimart POS System - Sales & Transaction Management',
+    )
     .setVersion('1.0')
     .addBearerAuth()
     .build();
@@ -38,7 +40,9 @@ async function bootstrap() {
   const port = process.env.PORT || 3004;
   await app.listen(port, '0.0.0.0');
 
-  console.log(`Minimart System Service is running on: http://0.0.0.0:${port}/api`);
+  console.log(
+    `Minimart System Service is running on: http://0.0.0.0:${port}/api`,
+  );
   console.log(`Swagger docs: http://0.0.0.0:${port}/api/docs`);
 }
 

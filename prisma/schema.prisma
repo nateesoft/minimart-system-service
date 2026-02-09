@@ -9,6 +9,84 @@ datasource db {
 }
 
 // ============================================
+// USER - ผู้ใช้งานระบบ
+// ============================================
+model User {
+  id            Int           @id @default(autoincrement())
+  username      String        @unique
+  email         String?       @unique
+  passwordHash  String
+  firstName     String
+  lastName      String?
+  phone         String?
+  isActive      Boolean       @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  roleId        Int
+  role          Role          @relation(fields: [roleId], references: [id])
+
+  // Audit trail - transactions this user created as cashier
+  transactions  Transaction[] @relation("CashierTransactions")
+
+  @@index([username])
+  @@index([roleId])
+  @@schema("minimart")
+}
+
+// ============================================
+// ROLE - บทบาทผู้ใช้งาน
+// ============================================
+model Role {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique      // e.g., "ADMIN", "CASHIER", "MANAGER"
+  displayName String                        // e.g., "ผู้ดูแลระบบ", "พนักงานขาย"
+  description String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  users       User[]
+  permissions RolePermission[]
+
+  @@schema("minimart")
+}
+
+// ============================================
+// PERMISSION - สิทธิ์การเข้าถึง
+// ============================================
+model Permission {
+  id          Int              @id @default(autoincrement())
+  code        String           @unique      // e.g., "pos.access", "admin.users.manage"
+  name        String                        // e.g., "เข้าถึงหน้าขาย"
+  module      String                        // e.g., "pos", "admin", "inventory"
+  description String?
+  createdAt   DateTime         @default(now())
+
+  roles       RolePermission[]
+
+  @@index([module])
+  @@schema("minimart")
+}
+
+// ============================================
+// ROLE_PERMISSION - ความสัมพันธ์ Role-Permission
+// ============================================
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+  createdAt    DateTime   @default(now())
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@schema("minimart")
+}
+
+// ============================================
 // CATEGORY - หมวดหมู่สินค้า
 // ============================================
 model Category {
@@ -31,21 +109,24 @@ model Category {
 // PRODUCT - สินค้า
 // ============================================
 model Product {
-  id               Int               @id @default(autoincrement())
-  name             String
-  categoryId       Int
-  price            Float             @default(0)
-  costPrice        Float             @default(0)
-  barcode          String            @unique
-  stock            Int               @default(0)
-  minStock         Int               @default(10)
-  image            String?
-  unit             String
-  isActive         Boolean           @default(true)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  category         Category          @relation(fields: [categoryId], references: [id])
-  transactionItems TransactionItem[]
+  id                Int                @id @default(autoincrement())
+  name              String
+  categoryId        Int
+  price             Float              @default(0)
+  costPrice         Float              @default(0)
+  barcode           String             @unique
+  stock             Int                @default(0)
+  minStock          Int                @default(10)
+  image             String?
+  unit              String
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  category              Category               @relation(fields: [categoryId], references: [id])
+  transactionItems      TransactionItem[]
+  promotionProducts     PromotionProduct[]
+  inventoryTransactions InventoryTransaction[]
+  stockCounts           StockCount[]
 
   @@schema("minimart")
 }
@@ -62,12 +143,18 @@ model Transaction {
   status        TransactionStatus @default(COMPLETED)
   cashierName   String?
   cashierId     Int?
+  cashier       User?           @relation("CashierTransactions", fields: [cashierId], references: [id], onDelete: SetNull)
   notes         String?
+  memberId      Int?                        // สมาชิกที่ซื้อ
+  pointsEarned  Int               @default(0) // แต้มที่ได้รับจากรายการนี้
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   items         TransactionItem[]
   payment       Payment?
+  member        Member?           @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  pointTransactions PointTransaction[]
 
+  @@index([memberId])
   @@schema("minimart")
 }
 
@@ -137,5 +224,171 @@ enum TransactionStatus {
   VOIDED
   REFUNDED
 
+  @@schema("minimart")
+}
+
+enum PromotionType {
+  BUY_X_GET_Y        // ซื้อ X แถม Y
+  QUANTITY_DISCOUNT  // ซื้อ X ชิ้น ลด %
+  BUNDLE_FREE        // ซื้อ A+B แถม C
+  NEXT_ITEM_DISCOUNT // ซื้อ X ชิ้นต่อไปลด %
+
+  @@schema("minimart")
+}
+
+enum InventoryTransactionType {
+  RECEIVING   // รับสินค้าเข้า
+  ISSUING     // จ่ายสินค้าออก
+  ADJUSTMENT  // ปรับปรุงสต็อก (จากการนับ)
+  SALE        // ขาย (จาก POS)
+  REFUND      // คืนสินค้า
+
+  @@schema("minimart")
+}
+
+enum PointTransactionType {
+  EARN        // ได้รับจากการซื้อ
+  REDEEM      // ใช้แลกส่วนลด/ของรางวัล
+  BONUS       // โบนัสพิเศษ
+  ADJUSTMENT  // ปรับปรุงโดยแอดมิน
+  EXPIRED     // หมดอายุ
+
+  @@schema("minimart")
+}
+
+// ============================================
+// INVENTORY TRANSACTION - ประวัติการเคลื่อนไหวสต็อก
+// ============================================
+model InventoryTransaction {
+  id            Int                      @id @default(autoincrement())
+  productId     Int
+  type          InventoryTransactionType
+  quantity      Int                      // + รับเข้า, - จ่ายออก
+  previousStock Int                      // สต็อกก่อนทำรายการ
+  currentStock  Int                      // สต็อกหลังทำรายการ
+  reference     String?                  // เลขที่เอกสารอ้างอิง (PO, Invoice, TXN-xxx)
+  reason        String?                  // เหตุผล
+  notes         String?                  // หมายเหตุ
+  createdBy     String?                  // ผู้ทำรายการ
+  createdAt     DateTime                 @default(now())
+
+  product       Product                  @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@index([type])
+  @@index([createdAt])
+  @@schema("minimart")
+}
+
+// ============================================
+// STOCK COUNT - บันทึกการนับสต็อก
+// ============================================
+model StockCount {
+  id              Int       @id @default(autoincrement())
+  productId       Int
+  systemQuantity  Int       // จำนวนในระบบ ณ ขณะนับ
+  countedQuantity Int       // จำนวนที่นับได้จริง
+  variance        Int       // ผลต่าง (counted - system)
+  isAdjusted      Boolean   @default(false) // ปรับปรุงสต็อกแล้วหรือยัง
+  notes           String?   // หมายเหตุ
+  countedBy       String?   // ผู้นับ
+  createdAt       DateTime  @default(now())
+  adjustedAt      DateTime? // วันที่ปรับปรุง
+
+  product         Product   @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@index([isAdjusted])
+  @@schema("minimart")
+}
+
+// ============================================
+// PROMOTION - โปรโมชั่น
+// ============================================
+model Promotion {
+  id          Int                @id @default(autoincrement())
+  name        String             // ชื่อโปรโมชั่น
+  description String?            // คำอธิบาย
+  type        PromotionType
+  isActive    Boolean            @default(true)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  // Rule parameters (embedded for simplicity)
+  buyQuantity     Int?           // จำนวนที่ต้องซื้อ (X)
+  freeQuantity    Int?           // จำนวนที่แถม (Y)
+  discountPercent Float?         // เปอร์เซ็นต์ส่วนลด
+  discountAmount  Float?         // ส่วนลดเป็นจำนวนเงิน
+
+  // Relations
+  products    PromotionProduct[]
+
+  @@schema("minimart")
+}
+
+// ============================================
+// PROMOTION PRODUCT - สินค้าในโปรโมชั่น
+// ============================================
+model PromotionProduct {
+  id          Int       @id @default(autoincrement())
+  promotionId Int
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  productId   Int
+  product     Product   @relation(fields: [productId], references: [id])
+
+  // Role in promotion: "trigger" = สินค้าที่ต้องซื้อ, "free" = สินค้าที่แถม, "discounted" = สินค้าที่ได้ลด
+  role        String    @default("trigger")
+
+  @@unique([promotionId, productId, role])
+  @@schema("minimart")
+}
+
+// ============================================
+// MEMBER - สมาชิก
+// ============================================
+model Member {
+  id           Int                @id @default(autoincrement())
+  phone        String             @unique         // เบอร์โทร (primary identifier)
+  firstName    String                             // ชื่อ
+  lastName     String?                            // นามสกุล (optional)
+  email        String?            @unique         // อีเมล (optional)
+  totalPoints  Int                @default(0)     // แต้มสะสมปัจจุบัน
+  totalSpent   Float              @default(0)     // ยอดซื้อสะสม
+  isActive     Boolean            @default(true)  // สถานะ
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  // Relations
+  pointTransactions PointTransaction[]
+  transactions      Transaction[]
+
+  @@index([phone])
+  @@index([firstName])
+  @@schema("minimart")
+}
+
+// ============================================
+// POINT TRANSACTION - ประวัติการเคลื่อนไหวแต้ม
+// ============================================
+model PointTransaction {
+  id              Int                  @id @default(autoincrement())
+  memberId        Int
+  transactionId   Int?                            // อ้างอิงใบเสร็จ (null สำหรับ bonus/adjustment)
+  type            PointTransactionType
+  points          Int                             // + ได้รับ, - ใช้ไป
+  balanceBefore   Int                             // แต้มก่อนทำรายการ
+  balanceAfter    Int                             // แต้มหลังทำรายการ
+  description     String?                         // รายละเอียด
+  createdBy       String?                         // ผู้ทำรายการ
+  createdAt       DateTime             @default(now())
+
+  member          Member               @relation(fields: [memberId], references: [id])
+  transaction     Transaction?         @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([memberId])
+  @@index([transactionId])
+  @@index([createdAt])
   @@schema("minimart")
 }

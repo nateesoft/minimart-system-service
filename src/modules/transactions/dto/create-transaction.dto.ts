@@ -58,4 +58,9 @@ export class CreateTransactionDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @ApiPropertyOptional({ example: 1, description: 'Member ID for points accumulation' })
+  @IsInt()
+  @IsOptional()
+  memberId?: number;
 }
